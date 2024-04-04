@@ -138,15 +138,12 @@ todoList와 Calendar는 서로 연동이 됩니다.
 </br>
 
 ## 5. 핵심 트러블 슈팅
-### 5.1. 컨텐츠 필터와 페이징 처리 문제
-- 저는 이 서비스가 페이스북이나 인스타그램 처럼 가볍게, 자주 사용되길 바라는 마음으로 개발했습니다.  
-때문에 페이징 처리도 무한 스크롤을 적용했습니다.
+### 5.1. 디자인 완성 전 기능을 완성해뒀지만 사용하지못함.
+- 백그라운드 프론트 각각 나눠서 작업을 하다보니 기능이 먼저 완성된적이 있습니다.
 
-- 하지만 [무한스크롤, 페이징 혹은 “더보기” 버튼? 어떤 걸 써야할까](https://cyberx.tistory.com/82) 라는 글을 읽고 무한 스크롤의 단점들을 알게 되었고,  
-다양한 기준(카테고리, 사용자, 등록일, 인기도)의 게시물 필터 기능을 넣어서 이를 보완하고자 했습니다.
+- 하지만 완성된 디자인에서 페이징 기술이 들어간 API가 적용되어있어 기존의 코드를 사용해보려고 해도 사용할수 없었습니다.
 
-- 그런데 게시물이 필터링 된 상태에서 무한 스크롤이 동작하면,  
-필터링 된 게시물들만 DB에 요청해야 하기 때문에 아래의 **기존 코드** 처럼 각 필터별로 다른 Query를 날려야 했습니다.
+- 그래서 기존 동기식 방식이었던 코드를 아예 버리고 새로운 비동기식 코드를 작성해서 적용하게 되었습니다.
 
 <details>
 <summary><b>기존 코드</b></summary>
@@ -154,46 +151,65 @@ todoList와 Calendar는 서로 연동이 됩니다.
 
 ~~~java
 /**
- * 게시물 Top10 (기준: 댓글 수 + 좋아요 수)
- * @return 인기순 상위 10개 게시물
+ * 기존방식은 세션에 DocumentList 라는 Attribute에 저장해 </c foreach> 방식으로 출력하는식 이었습니다.
+ * 세션에서 가져온 아이디를 메소드를 활용하여 List<DocumentVO> 안에 담아서 보내 출력합니다.
  */
-public Page<PostResponseDto> listTopTen() {
-
-    PageRequest pageRequest = PageRequest.of(0, 10, Sort.Direction.DESC, "rankPoint", "likeCnt");
-    return postRepository.findAll(pageRequest).map(PostResponseDto::new);
-}
-
-/**
- * 게시물 필터 (Tag Name)
- * @param tagName 게시물 박스에서 클릭한 태그 이름
- * @param pageable 페이징 처리를 위한 객체
- * @return 해당 태그가 포함된 게시물 목록
- */
-public Page<PostResponseDto> listFilteredByTagName(String tagName, Pageable pageable) {
-
-    return postRepository.findAllByTagName(tagName, pageable).map(PostResponseDto::new);
-}
-
-// ... 게시물 필터 (Member) 생략 
-
-/**
- * 게시물 필터 (Date)
- * @param createdDate 게시물 박스에서 클릭한 날짜
- * @return 해당 날짜에 등록된 게시물 목록
- */
-public List<PostResponseDto> listFilteredByDate(String createdDate) {
-
-    // 등록일 00시부터 24시까지
-    LocalDateTime start = LocalDateTime.of(LocalDate.parse(createdDate), LocalTime.MIN);
-    LocalDateTime end = LocalDateTime.of(LocalDate.parse(createdDate), LocalTime.MAX);
-
-    return postRepository
-                    .findAllByCreatedAtBetween(start, end)
-                    .stream()
-                    .map(PostResponseDto::new)
-                    .collect(Collectors.toList());
-    }
+public String execute(HttpServletRequest request, HttpServletResponse response) {
+      HttpSession session = request.getSession();
+    MemberVO mvo = (MemberVO) session.getAttribute("profile");
+    String userId = mvo.getuserId();
+      DAO dao = new DAO();
+      List<DocumentVO> list = dao.DocumentSelect(userId);
+      request.setAttribute("DocumentList", list);
+      return "Document";
+   }
 ~~~
+
+</div>
+</details>
+
+- 이 방식을 활용하면 아이디별 게시글 작성 수 대로 출력은 되었으나 페이징 기능을 구현하지않은 상태여서 보완이 필요한 시점이었습니다.
+- 완성된 디자인에서 페이징 기능이 구현된 API를 전달받아 기존기능을 살려서 활용해보려 했으나
+- js로 따로 빼둔 페이징 API의 내부에 값을 넣을수 없기 때문에 사용이 불가능하였습니다.
+- 그래서 처음부터 다시 설계하여 ajax내부의 succes쪽에 페이징 api를 넣고 json 값을 가져오는 방식으로 해결 하였습니다. 
+
+<details>
+<summary><b>개선된 코드</b></summary>
+<div markdown="1">
+
+~~~java
+/**
+ * MemberVO 안에 들어간 profile = 로그인한 계정의 정보입니다.
+ * dao.DocumentSelect(userId) = dao에 있는 metod 에 userId 활용합니다.
+ * new Gson() = json 자료를 활용하기위해 import
+ * return = 비동기 통신이기 때문에 리턴값이 없습니다.
+ * out.print(json) 통신 성공시 succes 값에 들어갈 값을 넣어줍니다.
+ */
+  @WebServlet("/documentListAjax")
+   protected void service(HttpServletRequest request, HttpServletResponse response)
+         throws ServletException, IOException {
+
+      response.setContentType("text/html; charset=utf-8");
+      response.setCharacterEncoding("uft-8");
+
+      HttpSession session = request.getSession();
+      MemberVO mvo = (MemberVO) session.getAttribute("profile");
+      String userId = mvo.getuserId();
+
+      DAO dao = new DAO();
+      List<DocumentVO> listvo = dao.DocumentSelect(userId);
+
+      Gson gson = new Gson();
+      String json = gson.toJson(listvo);
+
+      PrintWriter out = response.getWriter();
+      out.print(json);
+      return;
+   }
+~~~
+
+
+
 
 </div>
 </details>
