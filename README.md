@@ -22,7 +22,7 @@
 
 </br>
 
-#### Backend 사용언어
+#### Backend 사용언어 (Java 17, Python 3.11)
 <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=Python&logoColor=white"/> <img src="https://img.shields.io/badge/Java-007396?style=for-the-badge&logo=java&logoColor=white"/> 
 
 #### Frontend 사용언어
@@ -37,8 +37,9 @@
 #### 서버환경
 <img src="https://img.shields.io/badge/Apache Tomcat 9.0-D22128?style=for-the-badge&logo=Apache Tomcat&logoColor=white"/> 
 
-#### 데이터베이스
+#### 데이터베이스 (MySQL 8.0, Mybatis 3.0)
 <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=MySQL&logoColor=white"/> 
+Mybatis
 
 #### 디자인
 <img src="https://img.shields.io/badge/css-1572B6?style=for-the-badge&logo=css3&logoColor=white">
